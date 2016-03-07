@@ -16,7 +16,6 @@ Include Libraries
 -----------------*/ 
 #include "Adafruit_FONA.h"
 
-
 /* ------------------
 Define pin connection
 --------------------- */
@@ -43,10 +42,14 @@ Initialize varabiables
 /* ------ sensor variables ------ */
 int sensorValueAmmonia;
 int sensorValueMethane;
+int refAmmoniaValue = 300;
+int refMethaneValue = 750;
+
 /* -------- fona variables --------- */
 bool connectedToNetwork = false;
 char PIN[] = "1243\0";
-char sendto[] = "0626920632";
+char sendtoInfo[] = "0626920632";
+char sendToAlert[] = "0782693615";
 char timeBuffer[23];
 int timeToSend = 0;
 
@@ -110,6 +113,7 @@ void loop() {
    if (!connectedToNetwork) {
        Serial.println("connected false ..., try to connect");
         uint8_t n = fona.getNetworkStatus();
+        // ------------ The sim is not registered to any provider ------------------
         if (n == 0) {
           Serial.println(F(" 0 - Not registered"));
           Serial.print(F("Unlocking SIM card: "));
@@ -124,6 +128,7 @@ void loop() {
         if (n == 2) Serial.println(F("2 - Not registered (searching)"));
         if (n == 3) Serial.println(F("3 - Denied"));
         if (n == 4) Serial.println(F("4 - Unknown"));
+        // ------------- The sim is yet registered to a provider and cand send sms -------------
         if (n == 5) {
           Serial.println(F("5 - Registered roaming"));
           connectedToNetwork = true;
@@ -135,26 +140,60 @@ void loop() {
           }  
         }
       }
-
-  // put your main code here, to run repeatedly:
+      
+    /* --------------------
+    Trigger analog values
+    from sensor 
+    ---------------------- */
   sensorValueAmmonia = analogRead(0);
   sensorValueMethane = analogRead(1);
   Serial.print("Ammonia : ");
   Serial.print(sensorValueAmmonia, DEC);
   Serial.print(" , Methane : ");
   Serial.println(sensorValueMethane, DEC);
+  
+  /* ----------------
+  SEND ALERT BY SMS 
+  ------------------ */
+  if (sensorValueAmmonia > refAmmoniaValue) {
+    //sensAlertSMS(sendToAlert);
+    sensAlertSMS(sendtoInfo, 2);
+  }
+  if (sensorValueMethane > refMethaneValue) {
+     sensAlertSMS(sendtoInfo, 1);
+  }
+  
   // add time to timeToSend;
   timeToSend++;
   delay(1000);
-  
+ 
   /* -------------
-  SEND SMS 
+  SEND INFO BY SMS
   ---------------- */
   if (timeToSend == 30) {
     Serial.println("Send sms");
     flushSerial();
     
-    /* -----------------------------------------------
+    sendSMS(sendtoInfo);
+  }
+
+} /* ----------------- END LOOP ----------------- */
+
+/* ----------------------- ADDITIONNAL FUNCTIONS --------------------------------- */
+/* ----------------
+Reinitialize serial
+------------------ */
+void flushSerial() {
+  while (Serial.available())
+    Serial.read();
+}
+
+/* ------
+Send info SMS 
+-------- */
+void sendSMS(char contact[] ) {
+  
+  /* -----------------------------------------------
     String constructions (concatenations with values)
     -------------------------------------------------- */
     String message = "Infos : ";
@@ -187,23 +226,49 @@ void loop() {
     message.toCharArray(char_array, str_len);
     
     Serial.print(F("Send to #"));
-    if (!fona.sendSMS(sendto, char_array)) {
+    if (!fona.sendSMS(contact, char_array)) {
       Serial.println(F("Failed"));
     } else {
        Serial.println(F("Sent!"));
     }
     // reinitialize time counter 
     timeToSend = 0;
-  }
-
-} /* ----------------- END LOOP ----------------- */
-
-
+}
 
 /* ----------------
-Reinitialize serial
------------------- */
-void flushSerial() {
-  while (Serial.available())
-    Serial.read();
+Sendd Alert SMS 
+-------------- */
+void sensAlertSMS(char contact[], int type) {
+  /* -----------------------------------------------
+    String constructions (concatenations with values)
+    -------------------------------------------------- */
+    String message = "Alerte odeur : ";
+    
+    // alert Methane 
+    if (type == 1 ) {
+      // METHANE  
+      message.concat("CH4. : ");
+      String methaneString = String(sensorValueMethane, DEC);
+      message.concat(methaneString);
+    }
+    
+    if (type == 2) {
+      //AMMONIA
+      message.concat(" ,NH3 : ");
+      String AmmoniaString = String(sensorValueAmmonia, DEC);
+      message.concat(AmmoniaString);
+    }
+    
+    // CONVERT STRING TO CHAR ARRAY 
+    int str_len = message.length() + 1; 
+    char char_array[str_len];
+    message.toCharArray(char_array, str_len);
+    
+    Serial.print(F("Send to #"));
+    if (!fona.sendSMS(contact, char_array)) {
+      Serial.println(F("Failed"));
+    } else {
+       Serial.println(F("Sent!"));
+    }
+  
 }
