@@ -14,16 +14,21 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 /* --------------
 Include Libraries 
 -----------------*/ 
+/* -- Phone SIM Library ---- */
 #include "Adafruit_FONA.h"
+/* -- Temperature sensor -- */
+#include "DHT.h"
 
 /* ------------------
 Define pin connection
 --------------------- */
-#define FONA_RX 2
-#define FONA_TX 3
-#define FONA_RST 4
-#define SENSOR_AMMONIA 0
-#define SENSOR_METHANE 1
+#define FONA_RX 2             // Fona 
+#define FONA_TX 3            // FOna 
+#define FONA_RST 4           // FOna   
+#define SENSOR_AMMONIA 0     // Ammonia / CO2 wired to analog pin 0
+#define SENSOR_METHANE 1     // Methane sensor wired to analog pin 1 
+#define DHTPIN 5             // DHT 11 wired to digital pin 5
+#define DHTTYPE DHT11        // DHT 11
 
 /* -------------------
 initialize FONA object
@@ -36,6 +41,11 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 uint8_t readline(char *buff, uint8_t maxbuff, uint16_t timeout = 0);
 uint8_t type;
 
+/* ---------------------
+Initialize DHT sensor.
+---------------------- */
+DHT dht(DHTPIN, DHTTYPE);
+
 /* ------------------
 Initialize varabiables 
 ---------------------- */
@@ -45,6 +55,8 @@ int sensorValueMethane;
 int refAmmoniaValue = 300;
 int refMethaneValue = 750;
 int refCO2MinValue = 100;
+float temperature;
+float humidity;
 
 /* -------- fona variables --------- */
 bool connectedToNetwork = false;
@@ -59,6 +71,11 @@ SETUP CODE, RUN ONCE
 ##################### */
 /* ------------------------------------------- SETUP -------------------------------------------------*/
 void setup() {
+  /* -----------------------
+  start temperature sensor 
+  ------------------------ */
+  dht.begin();
+  
   while (!Serial);
   /* ----------------
   Define serial bauds 
@@ -172,9 +189,50 @@ void loop() {
      sensAlertSMS(sendtoInfo, 1);
   }
   
+  /* ----------------------------------
+  Track temperature and pression values
+ ------------------------------------- */
+// Reading temperature or humidity takes about 250 milliseconds!
+  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
+  //float h = dht.readHumidity();
+  humidity = dht.readHumidity();
+  // Read temperature as Celsius (the default)
+  //float t = dht.readTemperature();
+  temperature = dht.readTemperature();
+  // Read temperature as Fahrenheit (isFahrenheit = true)
+  //float f = dht.readTemperature(true);
+
+  // Check if any reads failed and exit early (to try again).
+  if (isnan(humidity) || isnan(temperature)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+
+  // Compute heat index in Fahrenheit (the default)
+  //float hif = dht.computeHeatIndex(f, h);
+  // Compute heat index in Celsius (isFahreheit = false)
+  //float hic = dht.computeHeatIndex(t, h, false);
+
+  Serial.print("Humidity: ");
+  Serial.print(humidity);
+  Serial.print(" %\t");
+  Serial.print("Temperature: ");
+  Serial.print(temperature);
+  Serial.print(" *C ");
+  //Serial.print(f);
+  //Serial.print(" *F\t");
+  //Serial.print("Heat index: ");
+  //Serial.print(hic);
+  //Serial.print(" *C ");
+  //Serial.print(hif);
+  //Serial.println(" *F");
+
+/* ------------ 
+define delay  
+-------------- */  
   // add time to timeToSend;
   timeToSend++;
-  delay(1000);
+  delay(2000);
  
   /* -------------
   SEND INFO BY SMS
@@ -186,7 +244,7 @@ void loop() {
     sendSMS(sendtoInfo);
   }
 
-} /* ----------------- END LOOP ----------------- */
+} /* ------------------------------ END LOOP -------------------------------------- */
 
 /* ----------------------- ADDITIONNAL FUNCTIONS --------------------------------- */
 /* ----------------
@@ -229,6 +287,11 @@ void sendSMS(char contact[] ) {
     String AmmoniaString = String(sensorValueAmmonia, DEC);
     message.concat(AmmoniaString);
     
+    // TEMPERATURE AND HUMIDITY
+    message.concat(" ,Temp : ");
+    String temperatureString = String(temperature, DEC);
+    message.concat(temperatureString);
+    
     // CONVERT STRING TO CHAR ARRAY 
     int str_len = message.length() + 1; 
     char char_array[str_len];
@@ -263,7 +326,7 @@ void sensAlertSMS(char contact[], int type) {
     
     if (type == 2) {
       //AMMONIA
-      message.concat(" ,NH3 : ");
+      message.concat("NH3 : ");
       String AmmoniaString = String(sensorValueAmmonia, DEC);
       message.concat(AmmoniaString);
     }
