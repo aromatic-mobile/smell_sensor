@@ -44,6 +44,7 @@ int sensorValueAmmonia;
 int sensorValueMethane;
 int refAmmoniaValue = 300;
 int refMethaneValue = 750;
+int refCO2MinValue = 100;
 
 /* -------- fona variables --------- */
 bool connectedToNetwork = false;
@@ -155,10 +156,18 @@ void loop() {
   /* ----------------
   SEND ALERT BY SMS 
   ------------------ */
+  /* ---- unexpected volume of ammonia gas ----- */
   if (sensorValueAmmonia > refAmmoniaValue) {
     //sensAlertSMS(sendToAlert);
     sensAlertSMS(sendtoInfo, 2);
   }
+  
+  /* --------- maybe aerobic in process ----------- */
+  if (sensorValueAmmonia < refCO2MinValue) {
+    sensAlertSMS(sendtoInfo, 2);
+  }
+  
+  /* ------ unexpected volume of methane ---------- */
   if (sensorValueMethane > refMethaneValue) {
      sensAlertSMS(sendtoInfo, 1);
   }
