@@ -45,7 +45,7 @@ int sensorValueAmmonia;
 int sensorValueMethane;
 /* -------- fona variables --------- */
 bool connectedToNetwork = false;
-char PIN[5] = "1243\0";
+char PIN[] = "1243\0";
 char sendto[] = "0626920632";
 char timeBuffer[23];
 int timeToSend = 0;
