@@ -1,7 +1,7 @@
 /* 
 The MIT License (MIT)
 
-Copyright (c) 2016 David di Marcantonio
+Copyright (c)2016 David di Marcantonio
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -9,6 +9,11 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+*/
+
+/*
+Version : 0.9
+last update : 8 march 2016
 */
 
 /* --------------
@@ -60,17 +65,25 @@ float humidity;
 
 /* -------- fona variables --------- */
 bool connectedToNetwork = false;
-char PIN[] = "1243\0";
+char PIN[] = "6696\0";                 // sim card PIN Code, must be initialize the first time,  be careful after 3 tries, the sim will be locked
 char sendtoInfo[] = "0626920632";
 char sendToAlert[] = "0782693615";
 char timeBuffer[23];
+
+/* ---------- time variables ----------- */
+int timeBeforeNextMethaneAlert = 0;
+int timeBeforeNextAmmoniaAlert = 0; 
+int timeBeforeNextCO2Alert = 0;
 int timeToSend = 0;
+int refTimeToSend = 60;           // define the time between each info sms (r * t = realtime) (be careful in depends of the delay between each trigger value)
+int triggerDelay = 1000;          // define the time between each trigger values (impact arduino power consumption)
 
 /* #################
 SETUP CODE, RUN ONCE 
 ##################### */
 /* ------------------------------------------- SETUP -------------------------------------------------*/
-void setup() {
+void setup() 
+{
   /* -----------------------
   start temperature sensor 
   ------------------------ */
@@ -85,14 +98,16 @@ void setup() {
   Serial.println(F("Initializing....(May take 3 seconds)"));
 
   fonaSerial->begin(4800);
-  if (! fona.begin(*fonaSerial)) {
+  if (! fona.begin(*fonaSerial)) 
+  {
     Serial.println(F("Couldn't find FONA"));
     while (1);
   }
   type = fona.type();
   Serial.println(F("FONA is OK"));
   Serial.print(F("Found "));
-  switch (type) {
+  switch (type) 
+  {
     case FONA800L:
       Serial.println(F("FONA 800L")); break;
     case FONA800H:
@@ -112,30 +127,33 @@ void setup() {
   // Print module IMEI number.
   char imei[15] = {0}; // MUST use a 16 character buffer for IMEI!
   uint8_t imeiLen = fona.getIMEI(imei);
-  if (imeiLen > 0) {
+  if (imeiLen > 0) 
+  {
     Serial.print("Module IMEI: "); Serial.println(imei);
   }
-  
 }
 
-
+/* -------------------------------------------- LOOP (MAIN) ------------------------------------------*/
 /* #####################
 MAIN CODE, RUN REPATEDLY
 ######################## */
-/* -------------------------------------------- LOOP (MAIN) ------------------------------------------*/
-void loop() {
+void loop() 
+{
   /* ----------------
   test network status 
   -------------------- */
    // read the network/cellular status
-   if (!connectedToNetwork) {
-       Serial.println("connected false ..., try to connect");
+   if (!connectedToNetwork) 
+   {
+        Serial.println("connected false ..., try to connect");
         uint8_t n = fona.getNetworkStatus();
         // ------------ The sim is not registered to any provider ------------------
-        if (n == 0) {
+        if (n == 0) 
+        {
           Serial.println(F(" 0 - Not registered"));
           Serial.print(F("Unlocking SIM card: "));
-          if (! fona.unlockSIM("6696\0")) {
+          if (! fona.unlockSIM("6696\0")) 
+          {
             Serial.println(F("Failed"));
           } else {
             Serial.println(F("OK!"));
@@ -175,18 +193,29 @@ void loop() {
   ------------------ */
   /* ---- unexpected volume of ammonia gas ----- */
   if (sensorValueAmmonia > refAmmoniaValue) {
+      if (timeBeforeNextAmmoniaAlert == 0) {
+          sensAlertSMS(sendtoInfo, 2);
+          timeBeforeNextAmmoniaAlert = 1000 * 60 * 60 * 2; // the next alert will be in 2 hours 
+      }
     //sensAlertSMS(sendToAlert);
-    sensAlertSMS(sendtoInfo, 2);
+    
   }
   
   /* --------- maybe aerobic in process ----------- */
   if (sensorValueAmmonia < refCO2MinValue) {
-    sensAlertSMS(sendtoInfo, 2);
+      if (timeBeforeNextCO2Alert == 0) {
+          sensAlertSMS(sendtoInfo, 2);
+          timeBeforeNextCO2Alert = 1000 * 60 * 60 *2; // the next alert will be in 2 hours
+      }
+    
   }
   
   /* ------ unexpected volume of methane ---------- */
   if (sensorValueMethane > refMethaneValue) {
-     sensAlertSMS(sendtoInfo, 1);
+      if (timeBeforeNextMethaneAlert == 0) {
+          sensAlertSMS(sendtoInfo, 1);
+          timeBeforeNextMethaneAlert = 1000 * 60 * 60 * 2; // the next alert will be in 2 hours
+      }
   }
   
   /* ----------------------------------
@@ -232,12 +261,18 @@ define delay
 -------------- */  
   // add time to timeToSend;
   timeToSend++;
-  delay(2000);
+  delay(triggerDelay); // trigger value each n milliseconds (could be less... for a better battery longevity)
+  // count down the alert timers 
+  if (timeBeforeNextAmmoniaAlert > 0) timeBeforeNextAmmoniaAlert--;
+  if (timeBeforeNextCO2Alert > 0) timeBeforeNextCO2Alert--;
+  if (timeBeforeNextMethaneAlert > 0) timeBeforeNextMethaneAlert--;
+  
  
   /* -------------
   SEND INFO BY SMS
   ---------------- */
-  if (timeToSend == 30) {
+  if (timeToSend == refTimeToSend) // each 30 secondes. The counter will be reinitialize to 0 in the sendSMS fn() 
+  {
     Serial.println("Send sms");
     flushSerial();
     
@@ -250,7 +285,8 @@ define delay
 /* ----------------
 Reinitialize serial
 ------------------ */
-void flushSerial() {
+void flushSerial() 
+{
   while (Serial.available())
     Serial.read();
 }
@@ -258,7 +294,8 @@ void flushSerial() {
 /* ------
 Send info SMS 
 -------- */
-void sendSMS(char contact[] ) {
+void sendSMS(char contact[] ) 
+{
   
   /* -----------------------------------------------
     String constructions (concatenations with values)
@@ -268,14 +305,16 @@ void sendSMS(char contact[] ) {
     //BATTERY INFO 
     uint16_t vbat;
     message.concat("Batt. = ");
-    if (! fona.getBattPercent(&vbat)) {
+    if (! fona.getBattPercent(&vbat)) 
+    {
           Serial.println(F("Failed to read Batt"));
-      } else {
+    } else 
+    {
         String batString = String(vbat, DEC);
         Serial.print(F("VPct = ")); Serial.print(vbat); Serial.println(F("%"));
         message.concat(batString);
         message.concat("% ,");
-      }
+    }
     
     // METHANE  
     message.concat("CH4. : ");
@@ -310,21 +349,24 @@ void sendSMS(char contact[] ) {
 /* ----------------
 Sendd Alert SMS 
 -------------- */
-void sensAlertSMS(char contact[], int type) {
+void sensAlertSMS(char contact[], int type) 
+{
   /* -----------------------------------------------
     String constructions (concatenations with values)
     -------------------------------------------------- */
     String message = "Alerte odeur : ";
     
     // alert Methane 
-    if (type == 1 ) {
+    if (type == 1 ) 
+    {
       // METHANE  
       message.concat("CH4. : ");
       String methaneString = String(sensorValueMethane, DEC);
       message.concat(methaneString);
     }
     
-    if (type == 2) {
+    if (type == 2) 
+    {
       //AMMONIA
       message.concat("NH3 : ");
       String AmmoniaString = String(sensorValueAmmonia, DEC);
@@ -337,9 +379,12 @@ void sensAlertSMS(char contact[], int type) {
     message.toCharArray(char_array, str_len);
     
     Serial.print(F("Send to #"));
-    if (!fona.sendSMS(contact, char_array)) {
+    if (!fona.sendSMS(contact, char_array)) 
+    {
       Serial.println(F("Failed"));
-    } else {
+    } 
+    else 
+    {
        Serial.println(F("Sent!"));
     }
   
