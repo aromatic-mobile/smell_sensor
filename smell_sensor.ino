@@ -152,7 +152,7 @@ void loop()
         {
           Serial.println(F(" 0 - Not registered"));
           Serial.print(F("Unlocking SIM card: "));
-          if (! fona.unlockSIM("6696\0")) 
+          if (! fona.unlockSIM("1234\0")) 
           {
             Serial.println(F("Failed"));
           } else {
