@@ -24,6 +24,9 @@ Include Libraries
 /* -- Temperature sensor -- */
 #include "DHT.h"
 
+/* -- Temperature probe DS18B20 --- */
+#include "OneWire.h"
+
 /* ------------------
 Define pin connection
 --------------------- */
@@ -34,6 +37,7 @@ Define pin connection
 #define SENSOR_METHANE 1     // Methane sensor wired to analog pin 1 
 #define DHTPIN 5             // DHT 11 wired to digital pin 5
 #define DHTTYPE DHT11        // DHT 11
+OneWire  ds(7);              // probe temp wired to digital pin 7
 
 /* -------------------
 initialize FONA object
@@ -255,6 +259,15 @@ void loop()
   //Serial.print(" *C ");
   //Serial.print(hif);
   //Serial.println(" *F");
+  
+  /* --------------------------------
+  track probe waterproof temperature 
+  ----------------------------------- */
+  float probeTemperature = readTemperature();
+  Serial.print("Probe temperature is : ");
+  Serial.print(probeTemperature);
+  Serial.print(" Deg.C");
+  
 
 /* ------------ 
 define delay  
@@ -389,3 +402,40 @@ void sensAlertSMS(char contact[], int type)
     }
   
 }
+
+/* -------------------------
+Read temperature from probe 
+temperature waterproof sensor
+---------------------------- */
+float readTemperature() 
+{
+  byte data[12];
+  byte addr[8];
+  
+  if (!ds.search(addr)) 
+  {
+    ds.reset_search();
+    return -300; // there is no sensor wired 
+  }
+  
+  ds.reset();
+  ds.select(addr);
+  ds.write(0x44,1); // tell sensor to start converting
+  ds.reset();
+  ds.select(addr);
+  ds.write(0xBE); // tel sensor to start sending data
+  for (int i = 0; i < 9; i++) 
+  {
+    data[i] = ds.read();
+  }
+  
+  ds.reset_search();
+  
+  byte MSB = data[1];
+  byte LSB = data[0];
+  
+  float raw = ((MSB << 8) | LSB); // move MSB left for 8 spaces , join that with LSB
+  float realTempC = raw / 16; // move decimal point left for 4 spaces , result our temperature
+  return realTempC;
+}
+    
