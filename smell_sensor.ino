@@ -65,7 +65,7 @@ float humidity;
 
 /* -------- fona variables --------- */
 bool connectedToNetwork = false;
-char PIN[] = "6696\0";                 // sim card PIN Code, must be initialize the first time,  be careful after 3 tries, the sim will be locked
+char PIN[] = "1234\0";                 // sim card PIN Code, must be initialize the first time,  be careful after 3 tries, the sim will be locked
 char sendtoInfo[] = "0626920632";
 char sendToAlert[] = "0782693615";
 char timeBuffer[23];
