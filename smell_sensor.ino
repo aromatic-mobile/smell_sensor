@@ -66,6 +66,7 @@ int refMethaneValue = 750;
 int refCO2MinValue = 100;
 float temperature;
 float humidity;
+float probeTemperature;
 
 /* -------- fona variables --------- */
 bool connectedToNetwork = false;
@@ -263,10 +264,10 @@ void loop()
   /* --------------------------------
   track probe waterproof temperature 
   ----------------------------------- */
-  float probeTemperature = readTemperature();
+  probeTemperature = readTemperature();
   Serial.print("Probe temperature is : ");
   Serial.print(probeTemperature);
-  Serial.print(" Deg.C");
+  Serial.print(" Deg.C , ");
   
 
 /* ------------ 
@@ -341,8 +342,13 @@ void sendSMS(char contact[] )
     
     // TEMPERATURE AND HUMIDITY
     message.concat(" ,Temp : ");
-    String temperatureString = String(temperature, DEC);
+    String temperatureString = String(temperature, 2);
     message.concat(temperatureString);
+    
+    // PROBE TEMPERATURE 
+    message.concat(" ,Sonde : ");
+    String probeString = String(probeTemperature, 2);
+    message.concat(probeString);
     
     // CONVERT STRING TO CHAR ARRAY 
     int str_len = message.length() + 1; 
