@@ -12,8 +12,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 */
 
 /*
-Version : 0.9
-last update : 8 march 2016
+Version : 1.1
+last update : 06 april 2016
 */
 
 /* --------------
@@ -61,7 +61,7 @@ Initialize varabiables
 /* ------ sensor variables ------ */
 int sensorValueAmmonia;
 int sensorValueMethane;
-int refAmmoniaValue = 300;
+int refAmmoniaValue = 350;
 int refMethaneValue = 750;
 int refCO2MinValue = 100;
 float temperature;
@@ -71,17 +71,23 @@ float probeTemperature;
 /* -------- fona variables --------- */
 bool connectedToNetwork = false;
 char PIN[] = "1234\0";                 // sim card PIN Code, must be initialize the first time,  be careful after 3 tries, the sim will be locked
-char sendtoInfo[] = "0626920632";
-char sendToAlert[] = "0782693615";
+//char sendtoInfo[] = "0626920632"; // david
+char sendToDavid[] = "0626920632";
+char sendToLea[] = "0643029517";
+//char sendtoInfo[] = "0643029517"; // lea
+
+//char sendToAlert[] = "0782693615"; // 2eme phone david
+char sendToAlert[] = "0643029517"; // lea
 char timeBuffer[23];
+int contact = 1 ; // define who to contact
 
 /* ---------- time variables ----------- */
 int timeBeforeNextMethaneAlert = 0;
 int timeBeforeNextAmmoniaAlert = 0; 
 int timeBeforeNextCO2Alert = 0;
 int timeToSend = 0;
-int refTimeToSend = 60;           // define the time between each info sms (r * t = realtime) (be careful in depends of the delay between each trigger value)
-int triggerDelay = 1000;          // define the time between each trigger values (impact arduino power consumption)
+int refTimeToSend = 600;           // define the time between each info sms (r * t = realtime) (be careful in depends of the delay between each trigger value)
+int triggerDelay = 6000;         // define the time between each trigger values (impact arduino power consumption) each 1 min
 
 /* #################
 SETUP CODE, RUN ONCE 
@@ -144,6 +150,7 @@ MAIN CODE, RUN REPATEDLY
 ######################## */
 void loop() 
 {
+  
   /* ----------------
   test network status 
   -------------------- */
@@ -199,7 +206,7 @@ void loop()
   /* ---- unexpected volume of ammonia gas ----- */
   if (sensorValueAmmonia > refAmmoniaValue) {
       if (timeBeforeNextAmmoniaAlert == 0) {
-          sensAlertSMS(sendtoInfo, 2);
+          sensAlertSMS(sendToLea, 2);
           timeBeforeNextAmmoniaAlert = 1000 * 60 * 60 * 2; // the next alert will be in 2 hours 
       }
     //sensAlertSMS(sendToAlert);
@@ -209,7 +216,7 @@ void loop()
   /* --------- maybe aerobic in process ----------- */
   if (sensorValueAmmonia < refCO2MinValue) {
       if (timeBeforeNextCO2Alert == 0) {
-          sensAlertSMS(sendtoInfo, 2);
+          sensAlertSMS(sendToLea, 2);
           timeBeforeNextCO2Alert = 1000 * 60 * 60 *2; // the next alert will be in 2 hours
       }
     
@@ -218,7 +225,7 @@ void loop()
   /* ------ unexpected volume of methane ---------- */
   if (sensorValueMethane > refMethaneValue) {
       if (timeBeforeNextMethaneAlert == 0) {
-          sensAlertSMS(sendtoInfo, 1);
+          sensAlertSMS(sendToLea, 1);
           timeBeforeNextMethaneAlert = 1000 * 60 * 60 * 2; // the next alert will be in 2 hours
       }
   }
@@ -275,7 +282,9 @@ define delay
 -------------- */  
   // add time to timeToSend;
   timeToSend++;
+  Serial.print(" - delay1 - ");
   delay(triggerDelay); // trigger value each n milliseconds (could be less... for a better battery longevity)
+  Serial.print(" - delay2 - ");
   // count down the alert timers 
   if (timeBeforeNextAmmoniaAlert > 0) timeBeforeNextAmmoniaAlert--;
   if (timeBeforeNextCO2Alert > 0) timeBeforeNextCO2Alert--;
@@ -290,7 +299,14 @@ define delay
     Serial.println("Send sms");
     flushSerial();
     
-    sendSMS(sendtoInfo);
+    if ( contact == 1 ) {
+      sendSMS(sendToDavid);
+      contact = 2;
+    } else {
+      sendSMS(sendToLea);
+      contact = 1;
+    }
+    
   }
 
 } /* ------------------------------ END LOOP -------------------------------------- */
@@ -344,6 +360,10 @@ void sendSMS(char contact[] )
     message.concat(" ,Temp : ");
     String temperatureString = String(temperature, 2);
     message.concat(temperatureString);
+    message.concat(" ,Hum : ");
+    String humidityString = String(humidity, 2);
+    message.concat(humidityString);
+    message.concat("%");
     
     // PROBE TEMPERATURE 
     message.concat(" ,Sonde : ");
