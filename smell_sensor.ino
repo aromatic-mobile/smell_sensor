@@ -12,6 +12,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 */
 
 /*
+Version : 1.2
+last update : 30 juin 2016
+
 Version : 1.1
 last update : 06 april 2016
 */
@@ -70,7 +73,7 @@ float probeTemperature;
 
 /* -------- fona variables --------- */
 bool connectedToNetwork = false;
-char PIN[] = "1234\0";                 // sim card PIN Code, must be initialize the first time,  be careful after 3 tries, the sim will be locked
+char PIN[] = "6696\0";                 // sim card PIN Code, must be initialize the first time,  be careful after 3 tries, the sim will be locked
 //char sendtoInfo[] = "0626920632"; // david
 char sendToDavid[] = "0626920632";
 char sendToLea[] = "0643029517";
@@ -164,7 +167,7 @@ void loop()
         {
           Serial.println(F(" 0 - Not registered"));
           Serial.print(F("Unlocking SIM card: "));
-          if (! fona.unlockSIM("1234\0")) 
+          if (! fona.unlockSIM("6696\0")) 
           {
             Serial.println(F("Failed"));
           } else {
