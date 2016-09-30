@@ -1,4 +1,4 @@
-## what's it for?
+## What's it for?
 The various sensors are interrogated regularly and send an alert by SMS if the critical threshold is reached.
 
 ## What components do I need? 
